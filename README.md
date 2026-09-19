@@ -656,6 +656,9 @@ Future improvements planned for Q Player include:
 
 # Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branching, tests and pull requests,
+and [the repository review](docs/REPO_REVIEW.md) for architecture and planned fixes.
+
 Contributions are welcome.
 
 If you'd like to improve Q Player, fix bugs or suggest new features, feel free to open an issue or submit a pull request.
