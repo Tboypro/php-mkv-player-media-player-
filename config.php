@@ -12,7 +12,7 @@ ini_set('display_errors', 1);
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'q_mp4_payer');
+define('DB_NAME', 'q_mp4_player');
 
 // ---- Filesystem paths ----
 define('BASE_DIR', __DIR__);

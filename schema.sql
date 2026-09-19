@@ -6,7 +6,7 @@
 -- mysql -u root -p < schema.sql
 -- ==========================================================
 
-CREATE DATABASE IF NOT EXISTS qasim_mp4_player
+CREATE DATABASE IF NOT EXISTS q_mp4_player
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 
