@@ -108,3 +108,43 @@ for (const duration of [NaN, Infinity, 0]) {
     assert.equal(app.requests.length, 0);
 }
 console.log('PASS: pending resume choice, resume, explicit restart, normal saving, invalid metadata.');
+
+// Completion, a following pause, and unload all send zero; replay can save again.
+for (const useBeacon of [true, false]) {
+    const app = player(0, useBeacon);
+    app.load();
+    app.video.currentTime = 120;
+    // Some completion events can occur before ended has been observed.
+    app.video.pause();
+    assert.equal(app.requests.at(-1).position, 0);
+    app.video.ended = true;
+    app.video.emit('ended');
+    app.video.pause();
+    app.leave();
+    assert.equal(app.requests.length, 4);
+    assert.ok(app.requests.every(request => request.position === 0));
+    app.video.ended = false;
+    app.video.currentTime = 8;
+    app.video.play();
+    app.tick();
+    assert.equal(app.requests.at(-1).position, 8);
+}
+// Pausing before the end preserves the actual position, rather than prematurely resetting.
+{
+    const app = player(0);
+    app.load();
+    app.video.currentTime = 119.5;
+    app.video.pause();
+    assert.equal(app.requests.at(-1).position, 119);
+}
+// An unanswered resume prompt also blocks completion events from overwriting history.
+{
+    const app = player();
+    app.load();
+    app.video.currentTime = 120;
+    app.video.ended = true;
+    app.video.emit('ended');
+    app.leave();
+    assert.equal(app.requests.length, 0);
+}
+console.log('PASS: completion, pause/unload, fetch fallback, replay, near-end pause.');

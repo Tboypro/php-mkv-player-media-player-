@@ -199,7 +199,9 @@
     // --- Autosave progress every 5s + on pause/unload ---
     function saveProgress() {
         if (!resumeHandled || !Number.isFinite(video.duration) || video.duration <= 0) return;
-        const position = Math.floor(video.currentTime);
+        // Every save path must agree at completion, including pause and unload.
+        const position = video.ended || video.currentTime >= video.duration
+            ? 0 : Math.floor(video.currentTime);
         const data = new FormData();
         data.append('id', videoId);
         data.append('position', position);
@@ -212,10 +214,5 @@
     }
     setInterval(() => { if (!video.paused) saveProgress(); }, 5000);
     window.addEventListener('beforeunload', saveProgress);
-    video.addEventListener('ended', () => {
-        const data = new FormData();
-        data.append('id', videoId);
-        data.append('position', 0);
-        navigator.sendBeacon('save_progress.php', data);
-    });
+    video.addEventListener('ended', saveProgress);
 })();
