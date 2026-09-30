@@ -77,11 +77,14 @@
         video.currentTime = lastPosition;
         resumeToast.classList.remove('show');
         resumeHandled = true;
+        saveProgress();
         video.play();
     });
     resumeNo.addEventListener('click', () => {
+        video.currentTime = 0;
         resumeToast.classList.remove('show');
         resumeHandled = true;
+        saveProgress();
         video.play();
     });
 
@@ -195,7 +198,7 @@
 
     // --- Autosave progress every 5s + on pause/unload ---
     function saveProgress() {
-        if (!video.duration) return;
+        if (!resumeHandled || !Number.isFinite(video.duration) || video.duration <= 0) return;
         const position = Math.floor(video.currentTime);
         const data = new FormData();
         data.append('id', videoId);

@@ -30,5 +30,8 @@ jobs:
           node --check assets/js/app.js
           node --check assets/js/player.js
 
+      - name: Test player progress
+        run: node tests/player_progress_test.js
+
       - name: Test HTTP streaming
         run: python3 tests/stream_http_test.py
