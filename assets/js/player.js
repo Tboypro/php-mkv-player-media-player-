@@ -26,6 +26,9 @@
     const resumeTimeSpan = document.getElementById('resumeTime');
     const resumeYes = document.getElementById('resumeYes');
     const resumeNo = document.getElementById('resumeNo');
+    const shortcutsBtn = document.getElementById('shortcutsBtn');
+    const shortcutsPanel = document.getElementById('shortcutsPanel');
+    const shortcutsClose = document.getElementById('shortcutsClose');
     const playbackSpeed = document.getElementById('playbackSpeed');
     const speedStorageKey = 'qPlayer.playbackSpeed';
     const supportedSpeeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -172,9 +175,74 @@
         }
     });
 
+    // --- Keyboard shortcuts panel ---
+    function isShortcutsOpen() {
+        return shortcutsPanel && shortcutsPanel.classList.contains('show');
+    }
+
+    function openShortcuts() {
+        if (!shortcutsPanel) return;
+        shortcutsPanel.classList.add('show');
+        shortcutsPanel.setAttribute('aria-hidden', 'false');
+        if (shortcutsBtn) shortcutsBtn.setAttribute('aria-expanded', 'true');
+    }
+
+    function closeShortcuts() {
+        if (!shortcutsPanel) return;
+        shortcutsPanel.classList.remove('show');
+        shortcutsPanel.setAttribute('aria-hidden', 'true');
+        if (shortcutsBtn) shortcutsBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    function toggleShortcuts() {
+        if (isShortcutsOpen()) {
+            closeShortcuts();
+        } else {
+            openShortcuts();
+        }
+    }
+
+    if (shortcutsBtn) {
+        shortcutsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleShortcuts();
+        });
+    }
+
+    if (shortcutsClose) {
+        shortcutsClose.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeShortcuts();
+        });
+    }
+
+    if (shortcutsPanel) {
+        shortcutsPanel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (isShortcutsOpen() && !shortcutsPanel.contains(e.target) && !shortcutsBtn?.contains(e.target)) {
+            closeShortcuts();
+        }
+    });
+
     // --- Keyboard shortcuts ---
     document.addEventListener('keydown', e => {
-        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+        if (e.key === 'Escape' && isShortcutsOpen()) {
+            e.preventDefault();
+            closeShortcuts();
+            return;
+        }
+
+        // Allow Space to activate focused buttons (e.g. shortcuts toggle or close button)
+        if (e.key === ' ' && document.activeElement?.tagName === 'BUTTON') {
+            return;
+        }
+
         switch (e.key) {
             case ' ':
             case 'k':

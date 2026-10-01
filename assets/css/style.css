@@ -644,9 +644,110 @@ input[type="range"].volume-slider::-webkit-slider-thumb {
     cursor: pointer;
 }
 
+/* ---------- Keyboard shortcuts panel ---------- */
+.shortcuts-panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -48%);
+    background: rgba(21, 23, 28, 0.95);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    width: 90%;
+    max-width: 360px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 25;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+}
+
+.shortcuts-panel.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+}
+
+.shortcuts-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.shortcuts-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+}
+
+.shortcuts-close {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color .15s, background .15s;
+}
+.shortcuts-close:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.shortcuts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.shortcut-desc {
+    color: var(--text);
+}
+
+.shortcut-keys {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.shortcut-keys kbd {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
 @media (max-width: 640px) {
     .container, .stage { padding: 18px; }
     .controls-row-right .volume-row { display: none; }
+    .shortcuts-panel { padding: 14px 16px; max-width: 320px; }
+    .shortcut-item { font-size: 12px; }
+    .shortcut-keys kbd { font-size: 10px; padding: 2px 5px; }
 }
 
 /* Fullscreen playback - force the shell (and its video) to actually fill

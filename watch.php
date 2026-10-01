@@ -45,6 +45,35 @@ if ($video['status'] !== 'ready') {
             <button id="resumeNo" style="background:transparent;color:var(--text-dim);border:1px solid var(--border);">Start over</button>
         </div>
 
+        <div class="shortcuts-panel" id="shortcutsPanel" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle" aria-hidden="true">
+            <div class="shortcuts-header">
+                <div class="shortcuts-title" id="shortcutsTitle">Keyboard shortcuts</div>
+                <button type="button" class="shortcuts-close" id="shortcutsClose" aria-label="Close keyboard shortcuts">&times;</button>
+            </div>
+            <div class="shortcuts-list">
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Play / pause</span>
+                    <span class="shortcut-keys"><kbd>Space</kbd> or <kbd>K</kbd></span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Back 10 seconds</span>
+                    <span class="shortcut-keys"><kbd>&larr;</kbd></span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Forward 10 seconds</span>
+                    <span class="shortcut-keys"><kbd>&rarr;</kbd></span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Mute / unmute</span>
+                    <span class="shortcut-keys"><kbd>M</kbd></span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-desc">Toggle fullscreen</span>
+                    <span class="shortcut-keys"><kbd>F</kbd></span>
+                </div>
+            </div>
+        </div>
+
         <div class="controls">
             <div class="progress-row">
                 <span class="time-label" id="currentTime">0:00</span>
@@ -94,6 +123,12 @@ if ($video['status'] !== 'ready') {
                         </button>
                         <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.05" value="1">
                     </div>
+                    <button class="ctrl-btn" id="shortcutsBtn" title="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-expanded="false" aria-controls="shortcutsPanel">
+                        <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                            <rect x="2" y="4" width="20" height="16" rx="2.5"/>
+                            <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8"/>
+                        </svg>
+                    </button>
                     <button class="ctrl-btn" id="fullscreenBtn" title="Fullscreen">
                         <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
                             <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/>
