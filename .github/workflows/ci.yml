@@ -29,9 +29,36 @@ jobs:
         run: |
           node --check assets/js/app.js
           node --check assets/js/player.js
+          node --check assets/js/bookmarks.js
 
       - name: Test player progress
         run: node tests/player_progress_test.js
 
       - name: Test HTTP streaming
         run: python3 tests/stream_http_test.py
+
+  bookmarks:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-only-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli
+          coverage: none
+      - name: Test bookmarks with MariaDB
+        env:
+          BOOKMARK_DB_PASS: test-only-password
+        run: python3 tests/bookmarks_http_test.py

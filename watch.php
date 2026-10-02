@@ -1,5 +1,10 @@
 <?php
 require_once __DIR__ . '/config.php';
+session_start(['cookie_httponly' => true, 'cookie_samesite' => 'Lax']);
+if (empty($_SESSION['bookmarks_csrf'])) $_SESSION['bookmarks_csrf'] = bin2hex(random_bytes(32));
+$bookmarkToken = $_SESSION['bookmarks_csrf'];
+session_write_close();
+header('Cache-Control: no-store');
 
 $id = (int)($_GET['id'] ?? 0);
 $stmt = db()->prepare('SELECT * FROM videos WHERE id = ?');
@@ -138,6 +143,20 @@ if ($video['status'] !== 'ready') {
             </div>
         </div>
     </div>
+    <section class="bookmarks" id="bookmarks" aria-labelledby="bookmarksTitle"
+             data-video-id="<?= (int)$video['id'] ?>" data-token="<?= h($bookmarkToken) ?>">
+        <h2 id="bookmarksTitle">Saved moments</h2>
+        <form id="bookmarkForm" class="bookmark-form">
+            <label for="bookmarkName">Name this moment <span>(optional)</span></label>
+            <div class="bookmark-create-row">
+                <input id="bookmarkName" name="name" maxlength="120" placeholder="e.g. Important explanation" autocomplete="off">
+                <button type="submit" id="bookmarkAdd" disabled>Bookmark current moment</button>
+            </div>
+        </form>
+        <p id="bookmarkStatus" role="status" aria-live="polite">Loading saved moments…</p>
+        <button type="button" id="bookmarkRetry" hidden>Retry loading</button>
+        <ul id="bookmarkList" class="bookmark-list"></ul>
+    </section>
 </div>
 
 <script>
@@ -146,5 +165,6 @@ if ($video['status'] !== 'ready') {
     window.__duration = <?= (int)$video['duration_seconds'] ?>;
 </script>
 <script src="assets/js/player.js"></script>
+<script src="assets/js/bookmarks.js"></script>
 </body>
 </html>
