@@ -148,3 +148,22 @@ for (const useBeacon of [true, false]) {
     assert.equal(app.requests.length, 0);
 }
 console.log('PASS: completion, pause/unload, fetch fallback, replay, near-end pause.');
+
+// Selecting a bookmark resolves the pending resume prompt without starting playback.
+{
+    const app = player();
+    app.load();
+    app.video.buffered = { length: 0 };
+    app.video.handlers['qplayer:bookmark-seek']({ detail: 25 });
+    assert.equal(app.video.currentTime, 25);
+    assert.equal(app.video.paused, true);
+    assert.equal(app.element('resumeToast').classList.contains('show'), false);
+    assert.equal(app.requests.at(-1).position, 25);
+    app.leave();
+    assert.equal(app.requests.at(-1).position, 25);
+    for (const detail of [-1, 121, NaN, Infinity, '25']) {
+        app.video.handlers['qplayer:bookmark-seek']({ detail });
+        assert.equal(app.video.currentTime, 25);
+    }
+}
+console.log('PASS: bookmark seeking, resume choice, invalid bookmark positions.');

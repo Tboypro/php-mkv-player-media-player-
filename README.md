@@ -27,6 +27,7 @@ Unlike traditional desktop media players, Q Player runs entirely inside your bro
 - Resume videos from where you stopped watching
 - Skip forward and backward by 10 seconds
 - Playback speeds from 0.5× to 2×, with your preference remembered in this browser
+- Named video bookmarks: save, jump to, rename, and delete moments
 - Draggable seek bar
 - Automatic thumbnail generation
 - Displays video duration and file size
@@ -671,3 +672,8 @@ If you'd like to improve Q Player, fix bugs or suggest new features, feel free t
 This project is released under the MIT License.
 
 You're free to use, modify and distribute it in accordance with the terms of the license.
+
+## Bookmark upgrade
+
+Existing installations: run `php scripts/migrate_bookmarks.php` from the player folder.
+Do not reimport the database schema. See [bookmark setup and tests](docs/BOOKMARKS.md).

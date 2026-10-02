@@ -91,6 +91,18 @@
         video.play();
     });
 
+    // Selecting a saved moment is an explicit alternative to Resume / Start over.
+    video.addEventListener('qplayer:bookmark-seek', e => {
+        const position = e.detail;
+        if (!Number.isFinite(position) || position < 0 || !Number.isFinite(video.duration)
+            || position > video.duration) return;
+        video.currentTime = position;
+        resumeToast.classList.remove('show');
+        resumeHandled = true;
+        saveProgress();
+        updateProgressUI();
+    });
+
     // --- Play / pause ---
     function togglePlay() {
         if (video.paused) video.play();
