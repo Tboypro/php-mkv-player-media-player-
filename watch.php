@@ -165,6 +165,7 @@ if ($video['status'] !== 'ready') {
     window.__duration = <?= (int)$video['duration_seconds'] ?>;
 </script>
 <script src="assets/js/player.js"></script>
+<script src="assets/js/fullscreen.js"></script>
 <script src="assets/js/bookmarks.js"></script>
 </body>
 </html>

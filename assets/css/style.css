@@ -766,8 +766,8 @@ input[type="range"].volume-slider::-webkit-slider-thumb {
 }
 .video-shell:fullscreen video,
 .video-shell:-webkit-full-screen video {
-    width: auto;
-    height: auto;
+    width: 100%;
+    height: 100%;
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
@@ -796,4 +796,32 @@ input[type="range"].volume-slider::-webkit-slider-thumb {
     .bookmark-jump { flex-basis: 100%; }
     .bookmark-edit { flex-wrap: wrap; }
     .bookmark-edit input { flex-basis: 100%; }
+}
+
+/* Fullscreen state comes from the Fullscreen API, not the window dimensions. */
+.video-shell.is-fullscreen {
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+.video-shell.is-fullscreen video {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+}
+.video-shell .controls { opacity: 1; visibility: visible; transition: opacity .2s ease, visibility .2s ease; }
+.video-shell.is-fullscreen.controls-hidden { cursor: none; }
+.video-shell.is-fullscreen.controls-hidden .controls {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+    .video-shell .controls { transition: none; }
 }
