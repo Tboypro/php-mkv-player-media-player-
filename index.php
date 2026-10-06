@@ -40,7 +40,7 @@ $conversionMode = get_setting('conversion_mode', 'local');
             </div>
             <div class="upload-text">
                 <strong>Drop a video here, or browse</strong>
-                <span>MKV, MP4, MOV, AVI, WEBM &mdash; MKV/AVI/MOV get auto-converted to a browser-friendly file on upload.</span>
+                <span>MKV, MP4, MOV, AVI, WEBM &mdash; uploads are checked and converted for browser playback when needed.</span>
             </div>
             <button class="btn" id="browseBtn">Choose file</button>
             <input type="file" id="fileInput" accept=".mkv,.mp4,.webm,.mov,.avi,.m4v,.flv,.wmv">
@@ -52,7 +52,7 @@ $conversionMode = get_setting('conversion_mode', 'local');
                 <button type="button" class="switch-option <?= $conversionMode === 'local' ? 'active' : '' ?>" data-value="local">Local (ffmpeg)</button>
                 <button type="button" class="switch-option <?= $conversionMode === 'cloud' ? 'active' : '' ?>" data-value="cloud">Online (CloudConvert)</button>
             </div>
-            <span class="convert-mode-hint" id="convertModeHint">Applies to new uploads. Falls back to local automatically if the cloud job fails.</span>
+            <span class="convert-mode-hint" id="convertModeHint">Used when conversion is needed. Online sends the video to CloudConvert; if it fails, conversion continues locally.</span>
         </div>
 
         <div class="upload-form-row" id="titleRow" style="display:none;">
@@ -120,7 +120,7 @@ $conversionMode = get_setting('conversion_mode', 'local');
                             <span class="mode-tag">via <?= $v['actual_mode'] === 'cloud' ? 'Online' : 'Local' ?></span>
                         <?php endif; ?>
                     </div>
-                    <?php if ($v['status'] === 'processing' && !empty($v['convert_note'])): ?>
+                    <?php if (in_array($v['status'], ['processing', 'ready'], true) && !empty($v['convert_note'])): ?>
                         <div class="convert-note" data-note-for="<?= (int)$v['id'] ?>"><?= h($v['convert_note']) ?></div>
                     <?php endif; ?>
                 </div>

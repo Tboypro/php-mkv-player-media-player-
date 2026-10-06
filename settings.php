@@ -16,6 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         json_out(['error' => 'Add your CloudConvert API key to CLOUDCONVERT_API_KEY in config.php before switching to online conversion.'], 400);
     }
 
+    if ($mode === 'cloud' && !function_exists('curl_init')) {
+        json_out(['error' => 'Online conversion needs the PHP curl extension. Enable it for both your web server and PHP CLI.'], 400);
+    }
+
     set_setting('conversion_mode', $mode);
     json_out(['success' => true, 'conversion_mode' => $mode]);
 }
