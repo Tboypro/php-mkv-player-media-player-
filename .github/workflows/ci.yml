@@ -56,9 +56,17 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mysqli
+          extensions: mysqli, curl
           coverage: none
       - name: Test bookmarks with MariaDB
         env:
           BOOKMARK_DB_PASS: test-only-password
         run: python3 tests/bookmarks_http_test.py
+
+      - name: Install ffmpeg for conversion tests
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Test local conversion and simulated CloudConvert failures
+        env:
+          BOOKMARK_DB_PASS: test-only-password
+        run: python3 tests/conversion_test.py

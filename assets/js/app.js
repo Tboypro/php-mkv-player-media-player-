@@ -11,6 +11,8 @@
     const uploadStatusText = document.getElementById('uploadStatusText');
 
     let pendingFile = null;
+    let modeSaving = false;
+    let uploading = false;
 
     function resetUploadUI() {
         pendingFile = null;
@@ -55,11 +57,15 @@
     });
 
     startUploadBtn.addEventListener('click', () => {
-        if (!pendingFile) return;
+        if (!pendingFile || modeSaving || uploading) return;
+        uploading = true;
+        startUploadBtn.disabled = true;
 
         const formData = new FormData();
         formData.append('video', pendingFile);
         formData.append('title', titleInput.value.trim());
+        const selectedMode = document.querySelector('#convertModeSwitch .switch-option.active');
+        if (selectedMode) formData.append('conversion_mode', selectedMode.dataset.value);
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', 'upload.php');
@@ -92,6 +98,11 @@
             }
         };
 
+        xhr.onloadend = () => {
+            uploading = false;
+            startUploadBtn.disabled = modeSaving;
+        };
+
         xhr.onerror = () => {
             uploadStatusText.textContent = 'Upload failed — check your local server is running.';
         };
@@ -107,7 +118,10 @@
         convertModeSwitch.querySelectorAll('.switch-option').forEach(btn => {
             btn.addEventListener('click', () => {
                 const mode = btn.dataset.value;
-                if (btn.classList.contains('active')) return;
+                if (btn.classList.contains('active') || modeSaving || uploading) return;
+                modeSaving = true;
+                startUploadBtn.disabled = true;
+                convertModeSwitch.querySelectorAll('button').forEach(b => b.disabled = true);
 
                 const fd = new FormData();
                 fd.append('conversion_mode', mode);
@@ -125,6 +139,11 @@
                     })
                     .catch(() => {
                         if (convertModeHint) convertModeHint.textContent = 'Could not reach the server to change conversion mode.';
+                    })
+                    .finally(() => {
+                        modeSaving = false;
+                        startUploadBtn.disabled = uploading;
+                        convertModeSwitch.querySelectorAll('button').forEach(b => b.disabled = false);
                     });
             });
         });
