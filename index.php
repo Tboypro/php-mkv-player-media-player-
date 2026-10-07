@@ -1,35 +1,47 @@
 <?php
-require_once __DIR__ . '/config.php';
-
-$result = db()->query('SELECT * FROM videos ORDER BY created_at DESC');
-$videos = $result->fetch_all(MYSQLI_ASSOC);
-$processingIds = array_map(fn($v) => $v['id'], array_filter($videos, fn($v) => $v['status'] === 'processing'));
+require_once __DIR__ . '/includes/library.php';
+header('Cache-Control: no-store');
+$page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
+$total = (int)db()->query('SELECT COUNT(*) AS n FROM videos')->fetch_assoc()['n'];
+$page = min($page, max(1, (int)ceil($total / 24)));
+$offset = ($page - 1) * 24;
+$videos = db()->query('SELECT * FROM videos ORDER BY created_at DESC, id DESC LIMIT 24 OFFSET ' . $offset)->fetch_all(MYSQLI_ASSOC);
+$processingIds = array_column(array_filter($videos, fn($v) => $v['status'] === 'processing'), 'id');
 $conversionMode = get_setting('conversion_mode', 'local');
+$title = 'Your library';
+function library_url(array $changes): string { return 'index.php?' . http_build_query(array_merge(['page' => 1], $changes)); }
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Q MP4 Player</title>
-<link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-
-<div class="topbar">
-    <div class="brand">
-        <div class="brand-mark">
-            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        </div>
-        <div>
-            <div class="brand-name">Q<span>MP4</span>Player</div>
-            <div class="brand-tag">Your library. Your device. No connection required.</div>
-        </div>
-    </div>
-</div>
-
-<div class="container">
-
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?= h($title) ?> · Q Player</title><link rel="stylesheet" href="assets/css/style.css"><link rel="stylesheet" href="assets/css/library.css"></head>
+<body class="refresh library-page">
+<header class="q-header"><?= brand() ?><nav aria-label="Library navigation"><a aria-current="page" href="index.php">Library</a></nav><button data-open-upload><?= ui_icon('plus') ?><span>Add video</span></button></header>
+<main class="library-main">
+<div class="library-toolbar"><h1><?= h($title) ?></h1><span class="muted"><?= $total ?> <?= $total === 1 ? 'video' : 'videos' ?></span>
+<div class="view-switch"><button id="gridView" aria-label="Grid view" aria-pressed="true"><?= ui_icon('grid') ?></button><button id="listView" aria-label="List view" aria-pressed="false"><?= ui_icon('list') ?></button></div></div>
+<?php if (!$videos): ?><div class="q-empty"><?= ui_icon('play') ?><h2>No videos here yet</h2><p>Add a video to start your library.</p><button data-open-upload>Add video</button></div><?php endif ?>
+<div class="video-grid" id="videoGrid">
+<?php foreach ($videos as $v): ?>
+<article class="card media-card" data-id="<?= (int)$v['id'] ?>" data-status="<?= h($v['status']) ?>">
+<?php $tag = $v['status'] === 'ready' ? 'a' : 'div'; ?>
+<<?= $tag ?> class="media-thumb" <?= $tag === 'a' ? 'href="watch.php?id='.(int)$v['id'].'" aria-label="Play '.h($v['title']).'"' : '' ?>>
+<?php thumb($v) ?>
+<?php if ($v['status'] === 'ready'): ?><span class="hover-play"><?= ui_icon('play') ?></span><span class="duration-badge"><?= format_duration((int)$v['duration_seconds']) ?></span>
+<?php if ((int)$v['last_position'] > 0): ?><i class="card-progress" style="width:<?= progress_percent($v) ?>%"></i><?php endif ?>
+<?php else: ?><span class="status-badge"><?= $v['status'] === 'processing' ? 'Converting…' : 'Conversion failed' ?></span><?php endif ?>
+</<?= $tag ?>>
+<div class="media-info"><div><h3><?= h($v['title']) ?></h3><p class="card-meta">
+<?= h(format_bytes((int)$v['filesize_bytes'])) ?> · Added <?= h(date('M j', strtotime($v['created_at']))) ?>
+<?php if ($v['actual_mode']): ?> · via <?= $v['actual_mode'] === 'cloud' ? 'Online' : 'Local' ?><?php endif ?>
+</p></div><details class="card-menu"><summary aria-label="Actions for <?= h($v['title']) ?>"><?= ui_icon('more') ?></summary><div class="menu-options">
+<button class="card-delete-btn danger" data-id="<?= (int)$v['id'] ?>">Delete video</button>
+</div></details></div>
+<?php if (in_array($v['status'], ['processing', 'ready'], true) && !empty($v['convert_note'])): ?><p class="convert-note" data-note-for="<?= (int)$v['id'] ?>"><?= h($v['convert_note']) ?></p><?php elseif ($v['status'] === 'failed'): ?><p class="error-note"><?= h($v['error_message'] ?: 'Please try uploading again.') ?></p><?php endif ?>
+</article>
+<?php endforeach ?></div>
+<?php if ($total > 24): ?><nav class="pagination" aria-label="Pages"><?php if ($page > 1): ?><a href="<?= h(library_url(['page'=>$page-1])) ?>">Previous</a><?php endif ?><span>Page <?= $page ?> of <?= (int)ceil($total/24) ?></span><?php if ($page*24 < $total): ?><a href="<?= h(library_url(['page'=>$page+1])) ?>">Next</a><?php endif ?></nav><?php endif ?>
+</main>
+<dialog id="uploadDialog" class="q-dialog upload-dialog" aria-labelledby="uploadTitle"><div class="dialog-heading"><h2 id="uploadTitle">Add a video</h2><button data-close-dialog aria-label="Close upload"><?= ui_icon('close') ?></button></div>
     <div class="upload-panel" id="uploadPanel">
         <div class="upload-panel-inner">
             <div class="upload-icon">
@@ -69,71 +81,8 @@ $conversionMode = get_setting('conversion_mode', 'local');
         </div>
     </div>
 
-    <div class="section-heading">Your library</div>
 
-    <?php if (empty($videos)): ?>
-        <div class="empty-state">
-            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            <div>Nothing here yet. Upload your first video above.</div>
-        </div>
-    <?php else: ?>
-        <div class="grid" id="videoGrid">
-            <?php foreach ($videos as $v):
-                $resumePct = $v['duration_seconds'] > 0 ? round(($v['last_position'] / $v['duration_seconds']) * 100) : 0;
-            ?>
-            <div class="card" data-id="<?= (int)$v['id'] ?>" data-status="<?= h($v['status']) ?>">
-                <button class="card-delete-btn" data-id="<?= (int)$v['id'] ?>" title="Delete">
-                    <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                </button>
-                <a href="<?= $v['status'] === 'ready' ? 'watch.php?id=' . (int)$v['id'] : '#' ?>" style="text-decoration:none;color:inherit;">
-                    <div class="card-thumb-wrap">
-                        <?php if ($v['thumbnail']): ?>
-                            <img src="uploads/thumbnails/<?= h($v['thumbnail']) ?>" alt="">
-                        <?php else: ?>
-                            <div class="card-thumb-fallback">
-                                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                            </div>
-                        <?php endif; ?>
-
-                        <?php if ($v['status'] === 'ready'): ?>
-                            <div class="card-play-overlay">
-                                <div class="card-play-btn">
-                                    <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                </div>
-                            </div>
-                            <div class="card-duration"><?= h(format_duration((int)$v['duration_seconds'])) ?></div>
-                            <?php if ($resumePct > 1 && $resumePct < 97): ?>
-                            <div class="card-resume-bar"><div class="card-resume-fill" style="width:<?= $resumePct ?>%"></div></div>
-                            <?php endif; ?>
-                        <?php endif; ?>
-                    </div>
-                </a>
-                <div class="card-body">
-                    <div class="card-title" title="<?= h($v['title']) ?>"><?= h($v['title']) ?></div>
-                    <div class="card-meta">
-                        <span><?= h(format_bytes((int)$v['filesize_bytes'])) ?></span>
-                        <?php if ($v['status'] === 'processing'): ?>
-                            <span class="badge badge-processing"><span class="spinner"></span>Converting</span>
-                        <?php elseif ($v['status'] === 'failed'): ?>
-                            <span class="badge badge-failed" title="<?= h($v['error_message'] ?? '') ?>">Failed</span>
-                        <?php elseif ($v['actual_mode']): ?>
-                            <span class="mode-tag">via <?= $v['actual_mode'] === 'cloud' ? 'Online' : 'Local' ?></span>
-                        <?php endif; ?>
-                    </div>
-                    <?php if (in_array($v['status'], ['processing', 'ready'], true) && !empty($v['convert_note'])): ?>
-                        <div class="convert-note" data-note-for="<?= (int)$v['id'] ?>"><?= h($v['convert_note']) ?></div>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-
-</div>
-
-<script>
-    window.__processingIds = <?= json_encode(array_values($processingIds)) ?>;
-</script>
-<script src="assets/js/app.js"></script>
-</body>
-</html>
+</dialog>
+<script>window.__processingIds=<?= json_encode(array_values($processingIds)) ?>;</script>
+<script src="assets/js/app.js"></script><script src="assets/js/library.js"></script>
+</body></html>

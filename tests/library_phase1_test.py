@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Library HTTP regressions. Uses a disposable DB; BOOKMARK_DB_* and PHP_BIN configure it.
+Set LIBRARY_BROWSER_TEST=1 and PLAYWRIGHT_MODULE to run browser checks too.
+"""
+import base64, http.client, json, os, re, shutil, socket, subprocess, tempfile, time, uuid
+from pathlib import Path
+from urllib.parse import urlencode
+ROOT=Path(__file__).resolve().parents[1]
+env=os.environ.copy()
+env.update(TEST_HOST=os.getenv('BOOKMARK_DB_HOST','127.0.0.1'),TEST_PORT=os.getenv('BOOKMARK_DB_PORT','3306'),TEST_USER=os.getenv('BOOKMARK_DB_USER','root'),TEST_PASS=os.getenv('BOOKMARK_DB_PASS',''),TEST_DB='qplayer_library_'+uuid.uuid4().hex[:12])
+php=[os.getenv('PHP_BIN','php'),'-d','mysqli.default_port='+env['TEST_PORT']]
+name=env['TEST_DB'];created=False;server=None
+
+def sql(query):
+    code='''mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+$c=new mysqli(getenv('TEST_HOST'),getenv('TEST_USER'),getenv('TEST_PASS'),'',(int)getenv('TEST_PORT'));
+$c->set_charset('utf8mb4');$c->multi_query(stream_get_contents(STDIN));
+do{if($r=$c->store_result())echo json_encode($r->fetch_all(MYSQLI_ASSOC));}while($c->more_results()&&$c->next_result());'''
+    return subprocess.check_output(php+['-r',code],input=query.encode(),env=env).decode()
+
+def rows(query):return json.loads(sql(f'USE `{name}`; '+query))
+try:
+    sql(f'CREATE DATABASE `{name}` CHARACTER SET utf8mb4;');created=True
+    schema=(ROOT/'schema.sql').read_text();schema=re.sub(r'CREATE DATABASE IF NOT EXISTS q_mp4_player.*?;','',schema,flags=re.S).replace('USE q_mp4_player;','')
+    sql(f'USE `{name}`; '+schema)
+    for i in range(1,28):
+        title='&lt;literal&gt;' if i==27 else f'Video {i:02d}'
+        sql(f"USE `{name}`; INSERT INTO videos(id,title,original_filename,stored_filename,duration_seconds,last_position,filesize_bytes,status,convert_note,actual_mode) VALUES ({i},'{title}','test.mp4','test{i}.mp4',120,40,2048000,'ready','Converted locally after online failed: test failure','local');")
+    sql(f"USE `{name}`; UPDATE videos SET title='<script>alert(1)</script>' WHERE id=26; UPDATE videos SET status='processing',convert_note='Converting safely...' WHERE id=25; UPDATE videos SET status='failed',error_message='<b>Failed input</b>' WHERE id=24;")
+    with tempfile.TemporaryDirectory(prefix='qplayer-library-') as tmp:
+        root=Path(tmp);app=root/'app';shutil.copytree(ROOT,app,ignore=shutil.ignore_patterns('.git','uploads','__pycache__'))
+        config=(app/'config.php').read_text()
+        for key,value in [('DB_HOST',env['TEST_HOST']),('DB_USER',env['TEST_USER']),('DB_PASS',env['TEST_PASS']),('DB_NAME',name)]:
+            encoded=base64.b64encode(value.encode()).decode();config,count=re.subn(r"define\('"+key+r"',.*?\);",f"define('{key}',base64_decode('{encoded}'));",config);assert count==1
+        config+="\nini_set('mysqli.default_port', '"+env['TEST_PORT']+"');\n";(app/'config.php').write_text(config)
+        # FEATURE_MIGRATIONS
+        with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
+        log=(root/'server.log').open('w+')
+        server=subprocess.Popen(php+['-S',f'127.0.0.1:{port}','-t',str(app)],stdout=log,stderr=log,env=env)
+        cookie='';token=''
+        def request(path,values=None,csrf=True,method=None):
+            headers={'Cookie':cookie}
+            if csrf:headers['X-CSRF-Token']=token
+            if values is not None:headers['Content-Type']='application/x-www-form-urlencoded'
+            conn=http.client.HTTPConnection('127.0.0.1',port,timeout=10);conn.request(method or ('POST' if values is not None else 'GET'),path,urlencode(values) if values is not None else None,headers)
+            r=conn.getresponse();data=r.read().decode();result=(r.status,data,dict(r.getheaders()));conn.close();return result
+        for _ in range(100):
+            try:status,html,headers=request('/index.php');break
+            except OSError:time.sleep(.05)
+        else:raise AssertionError('Server did not start')
+        assert status==200,html
+        if 'Set-Cookie' in headers:cookie=headers['Set-Cookie'].split(';')[0]
+        match=re.search(r'window.__libraryToken="([a-f0-9]+)"',html)
+        if match:token=match.group(1)
+        assert len(re.findall(r'<article class="card media-card"',html))==24
+        assert 'watch.php?id=27' in html and 'watch.php?id=25' not in html
+        assert '&lt;script&gt;alert(1)&lt;/script&gt;' in html and '<script>alert(1)</script>' not in html
+        assert '&lt;b&gt;Failed input&lt;/b&gt;' in html
+        assert 'Converted locally after online failed: test failure' in html
+        assert 'uploadDialog' in html and 'convertModeSwitch' in html
+        assert 'Continue watching' not in html and 'sortVideos' not in html
+        status,second,_=request('/index.php?page=2');assert status==200 and second.count('<article class="card media-card"')==3
+        for page in ['-1','9999999999999999999999999','%5B%5D']:
+            assert request('/index.php?page='+page)[0]==200
+        assert 'assets/css/library.css' not in request('/watch.php?id=27')[1]
+        print('PASS layout, pagination, safe titles/errors, conversion messages and unchanged watch page',flush=True)
+        # FEATURE_TESTS
+        if os.getenv('LIBRARY_BROWSER_TEST')=='1':
+            clip=root/'test.mp4'
+            subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i','testsrc2=size=320x180:rate=5','-t','2','-c:v','libx264','-pix_fmt','yuv420p',str(clip)],check=True)
+            thumbs=app/'uploads/thumbnails';thumbs.mkdir(parents=True,exist_ok=True)
+            for i,color in enumerate(['#192f41','#36352d','#3a2131','#1c3d36'],1):
+                subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i',f'color=c={color}:s=640x360','-frames:v','1',str(thumbs/f'fixture{i}.jpg')],check=True)
+            sql(f"USE `{name}`; UPDATE videos SET thumbnail=CONCAT('fixture',MOD(id,4)+1,'.jpg');")
+            subprocess.run(['node',str(app/'tests/library_phase1_browser_test.js'),f'http://127.0.0.1:{port}',str(clip)],check=True,env=env)
+        log.seek(0);logs=log.read();assert 'Fatal error' not in logs and 'Warning:' not in logs,logs
+        print('Library phase tests passed.',flush=True)
+finally:
+    if server:server.terminate();server.wait(timeout=5)
+    if created:sql(f'DROP DATABASE `{name}`;')
