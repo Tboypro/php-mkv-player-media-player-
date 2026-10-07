@@ -28,6 +28,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check assets/js/app.js
+          node --check assets/js/library.js
           node --check assets/js/player.js
           node --check assets/js/bookmarks.js
 
@@ -70,3 +71,8 @@ jobs:
         env:
           BOOKMARK_DB_PASS: test-only-password
         run: python3 tests/conversion_test.py
+
+      - name: Test library layout with MariaDB
+        env:
+          BOOKMARK_DB_PASS: test-only-password
+        run: python3 tests/library_phase1_test.py

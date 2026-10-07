@@ -1,0 +1,77 @@
+const assert = require('node:assert/strict');
+const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+(async () => {
+    const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
+    const page = await browser.newPage({viewport:{width:1440,height:1000}});
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    const base=process.argv[2];
+    try {
+        await page.goto(base+'/index.php');
+        await page.locator('#listView').click();
+        await page.reload();
+        assert(await page.locator('#videoGrid').evaluate(el=>el.classList.contains('list-layout')));
+        await page.locator('#gridView').click();
+        await page.locator('.q-header [data-open-upload]').click();
+        assert(await page.locator('#uploadDialog').evaluate(el=>el.open));
+        await page.keyboard.press('Escape');
+        assert(!await page.locator('#uploadDialog').evaluate(el=>el.open));
+        for (const width of [1440,768,390]) {
+            await page.setViewportSize({width,height:1000});
+            assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow at ${width}`);
+            if(process.env.LIBRARY_SCREENSHOTS) await page.screenshot({path:process.env.LIBRARY_SCREENSHOTS+`/library-${width}.png`,fullPage:true});
+        }
+        const favoriteCard=page.locator('.media-card[data-id="27"]');
+        await favoriteCard.locator('summary').click();
+        await favoriteCard.locator('[data-action="favorite"]').click();
+        await page.locator('.media-card[data-id="27"] .favorite-mark').waitFor();
+        await page.locator('.q-header a[href="index.php?view=favorites"]').click();
+        assert.equal(await page.locator('.media-card').count(),1);
+        await page.locator('.media-card summary').click();
+        await page.locator('[data-action="favorite"]').click();
+        await page.locator('.q-empty').waitFor();
+        await page.locator('.q-header a[href="index.php?view=library"]').click();
+        console.log('PASS browser favorites add/view/remove');
+        await page.locator('.q-header a[href="index.php?view=collections"]').click();
+        await page.locator('.library-toolbar [data-action="create_collection"]').click();
+        await page.locator('#actionName').fill('Physics lectures');
+        await page.locator('#actionSubmit').click();
+        await page.locator('.collection-card').filter({hasText:'Physics lectures'}).waitFor();
+        await page.locator('.q-header a[href="index.php?view=library"]').click();
+        await page.locator('.media-card[data-id="27"] summary').click();
+        await page.locator('.media-card[data-id="27"] [data-action="add_to_collection"]').click();
+        await page.locator('#actionSubmit').click();
+        await page.waitForFunction(()=>!document.getElementById('actionDialog').open);
+        await page.locator('.q-header a[href="index.php?view=collections"]').click();
+        const collection=page.locator('.collection-card').filter({hasText:'Physics lectures'});
+        await collection.locator('[data-action="rename_collection"]').click();
+        await page.locator('#actionName').fill('Physics revision');
+        await page.locator('#actionSubmit').click();
+        await page.locator('.collection-card a').filter({hasText:'Physics revision'}).click();
+        assert.equal(await page.locator('.media-card').count(),1);
+        await page.locator('.media-card summary').click();
+        await page.locator('[data-action="remove_from_collection"]').click();
+        await page.locator('#actionSubmit').click();
+        await page.locator('.q-empty').waitFor();
+        await page.locator('.q-header a[href="index.php?view=collections"]').click();
+        await page.locator('[data-action="delete_collection"]').click();
+        await page.locator('#actionSubmit').click();
+        await page.locator('.q-empty').waitFor();
+        await page.locator('.q-header a[href="index.php?view=library"]').click();
+        assert.equal(await page.locator('.media-card[data-id="27"]').count(),1);
+        console.log('PASS browser collection create/rename/add/remove/delete; video preserved');
+        // FEATURE_BROWSER_TESTS
+        await page.locator('.q-header [data-open-upload]').click();
+        await page.locator('#fileInput').setInputFiles(process.argv[3]);
+        await page.locator('#titleInput').fill('Browser upload test');
+        await page.locator('#startUploadBtn').click();
+        await page.waitForFunction(()=>[...document.querySelectorAll('.media-info h3')].some(el=>el.textContent==='Browser upload test'));
+        const card=page.locator('.media-card').filter({has:page.locator('h3',{hasText:'Browser upload test'})});
+        await card.locator('a.media-thumb').waitFor({timeout:30000});
+        await card.locator('summary').click();
+        page.once('dialog',d=>d.accept());
+        await card.locator('.card-delete-btn').click();
+        await card.waitFor({state:'detached'});
+        assert.deepEqual(errors,[]);
+        console.log('PASS browser: responsive grid/list, upload dialog, real upload/conversion and deletion');
+    } finally {await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});
