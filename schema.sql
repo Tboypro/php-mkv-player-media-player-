@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS videos (
     -- Resume playback position (seconds)
     last_position INT UNSIGNED DEFAULT 0,
 
+    is_favorite TINYINT UNSIGNED NOT NULL DEFAULT 0,
+
     -- Conversion status
     status ENUM('processing','ready','failed')
         DEFAULT 'processing',

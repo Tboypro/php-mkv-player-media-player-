@@ -1,25 +1,28 @@
 <?php
 require_once __DIR__ . '/includes/library.php';
+library_ready(); $token = library_token();
 header('Cache-Control: no-store');
+$view = ($_GET['view'] ?? '') === 'favorites' ? 'favorites' : 'library';
+$condition = $view === 'favorites' ? ' WHERE is_favorite = 1' : '';
 $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
-$total = (int)db()->query('SELECT COUNT(*) AS n FROM videos')->fetch_assoc()['n'];
+$total = (int)db()->query('SELECT COUNT(*) AS n FROM videos' . $condition)->fetch_assoc()['n'];
 $page = min($page, max(1, (int)ceil($total / 24)));
 $offset = ($page - 1) * 24;
-$videos = db()->query('SELECT * FROM videos ORDER BY created_at DESC, id DESC LIMIT 24 OFFSET ' . $offset)->fetch_all(MYSQLI_ASSOC);
+$videos = db()->query('SELECT * FROM videos' . $condition . ' ORDER BY created_at DESC, id DESC LIMIT 24 OFFSET ' . $offset)->fetch_all(MYSQLI_ASSOC);
 $processingIds = array_column(array_filter($videos, fn($v) => $v['status'] === 'processing'), 'id');
 $conversionMode = get_setting('conversion_mode', 'local');
-$title = 'Your library';
-function library_url(array $changes): string { return 'index.php?' . http_build_query(array_merge(['page' => 1], $changes)); }
+$title = $view === 'favorites' ? 'Favorites' : 'Your library';
+function library_url(array $changes): string { return 'index.php?' . http_build_query(array_merge(['view' => $GLOBALS['view'], 'page' => 1], $changes)); }
 ?>
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= h($title) ?> · Q Player</title><link rel="stylesheet" href="assets/css/style.css"><link rel="stylesheet" href="assets/css/library.css"></head>
 <body class="refresh library-page">
-<header class="q-header"><?= brand() ?><nav aria-label="Library navigation"><a aria-current="page" href="index.php">Library</a></nav><button data-open-upload><?= ui_icon('plus') ?><span>Add video</span></button></header>
+<header class="q-header"><?= brand() ?><nav aria-label="Library navigation"><?php foreach (['library'=>'Library','favorites'=>'Favorites'] as $key=>$label): ?><a <?= $view === $key ? 'aria-current="page"' : '' ?> href="index.php?view=<?= $key ?>"><?= $label ?></a><?php endforeach ?></nav><button data-open-upload><?= ui_icon('plus') ?><span>Add video</span></button></header>
 <main class="library-main">
 <div class="library-toolbar"><h1><?= h($title) ?></h1><span class="muted"><?= $total ?> <?= $total === 1 ? 'video' : 'videos' ?></span>
 <div class="view-switch"><button id="gridView" aria-label="Grid view" aria-pressed="true"><?= ui_icon('grid') ?></button><button id="listView" aria-label="List view" aria-pressed="false"><?= ui_icon('list') ?></button></div></div>
-<?php if (!$videos): ?><div class="q-empty"><?= ui_icon('play') ?><h2>No videos here yet</h2><p>Add a video to start your library.</p><button data-open-upload>Add video</button></div><?php endif ?>
+<?php if (!$videos): ?><div class="q-empty"><?= ui_icon('play') ?><h2>No videos here yet</h2><p><?= $view === 'favorites' ? 'Favorite a video from its menu to find it here.' : 'Add a video to start your library.' ?></p><button data-open-upload>Add video</button></div><?php endif ?>
 <div class="video-grid" id="videoGrid">
 <?php foreach ($videos as $v): ?>
 <article class="card media-card" data-id="<?= (int)$v['id'] ?>" data-status="<?= h($v['status']) ?>">
@@ -30,10 +33,11 @@ function library_url(array $changes): string { return 'index.php?' . http_build_
 <?php if ((int)$v['last_position'] > 0): ?><i class="card-progress" style="width:<?= progress_percent($v) ?>%"></i><?php endif ?>
 <?php else: ?><span class="status-badge"><?= $v['status'] === 'processing' ? 'Converting…' : 'Conversion failed' ?></span><?php endif ?>
 </<?= $tag ?>>
-<div class="media-info"><div><h3><?= h($v['title']) ?></h3><p class="card-meta">
+<div class="media-info"><div><h3><?= h($v['title']) ?></h3><p class="card-meta"><?php if ($v['is_favorite']): ?><span class="favorite-mark" aria-label="Favorite">♥</span> <?php endif ?>
 <?= h(format_bytes((int)$v['filesize_bytes'])) ?> · Added <?= h(date('M j', strtotime($v['created_at']))) ?>
 <?php if ($v['actual_mode']): ?> · via <?= $v['actual_mode'] === 'cloud' ? 'Online' : 'Local' ?><?php endif ?>
 </p></div><details class="card-menu"><summary aria-label="Actions for <?= h($v['title']) ?>"><?= ui_icon('more') ?></summary><div class="menu-options">
+<button data-action="favorite" data-video-id="<?= (int)$v['id'] ?>" data-value="<?= $v['is_favorite'] ? 0 : 1 ?>"><?= $v['is_favorite'] ? 'Remove favorite' : 'Favorite' ?></button>
 <button class="card-delete-btn danger" data-id="<?= (int)$v['id'] ?>">Delete video</button>
 </div></details></div>
 <?php if (in_array($v['status'], ['processing', 'ready'], true) && !empty($v['convert_note'])): ?><p class="convert-note" data-note-for="<?= (int)$v['id'] ?>"><?= h($v['convert_note']) ?></p><?php elseif ($v['status'] === 'failed'): ?><p class="error-note"><?= h($v['error_message'] ?: 'Please try uploading again.') ?></p><?php endif ?>
@@ -83,6 +87,8 @@ function library_url(array $changes): string { return 'index.php?' . http_build_
 
 
 </dialog>
+<div id="libraryStatus" class="toast" role="status" aria-live="polite"></div>
+<script>window.__libraryToken=<?= json_encode($token) ?>;</script>
 <script>window.__processingIds=<?= json_encode(array_values($processingIds)) ?>;</script>
 <script src="assets/js/app.js"></script><script src="assets/js/library.js"></script>
 </body></html>

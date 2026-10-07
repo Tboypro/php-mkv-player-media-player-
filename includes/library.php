@@ -1,5 +1,24 @@
 <?php
 require_once dirname(__DIR__) . "/config.php";
+function library_token(): string {
+    if (session_status() !== PHP_SESSION_ACTIVE) session_start(['cookie_httponly' => true, 'cookie_samesite' => 'Lax']);
+    if (empty($_SESSION['bookmarks_csrf'])) $_SESSION['bookmarks_csrf'] = bin2hex(random_bytes(32));
+    $token = $_SESSION['bookmarks_csrf'];
+    session_write_close();
+    return $token;
+}
+function library_query(string $sql, string $types = '', array $params = []): mysqli_stmt {
+    $stmt = db()->prepare($sql);
+    if ($types !== '') $stmt->bind_param($types, ...$params);
+    $stmt->execute(); return $stmt;
+}
+function library_ready(): void {
+    try { db()->query('SELECT is_favorite FROM videos LIMIT 0'); }
+    catch (mysqli_sql_exception $e) {
+        http_response_code(503);
+        exit('Favorites update needed. In your player folder run: php scripts/migrate_favorites.php');
+    }
+}
 function progress_percent(array $v): float {
     return (int)$v['duration_seconds'] > 0 ? min(100, max(0, 100 * (int)$v['last_position'] / (int)$v['duration_seconds'])) : 0;
 }

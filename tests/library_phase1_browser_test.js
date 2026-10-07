@@ -20,6 +20,17 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
             assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow at ${width}`);
             if(process.env.LIBRARY_SCREENSHOTS) await page.screenshot({path:process.env.LIBRARY_SCREENSHOTS+`/library-${width}.png`,fullPage:true});
         }
+        const favoriteCard=page.locator('.media-card[data-id="27"]');
+        await favoriteCard.locator('summary').click();
+        await favoriteCard.locator('[data-action="favorite"]').click();
+        await page.locator('.media-card[data-id="27"] .favorite-mark').waitFor();
+        await page.locator('.q-header a[href="index.php?view=favorites"]').click();
+        assert.equal(await page.locator('.media-card').count(),1);
+        await page.locator('.media-card summary').click();
+        await page.locator('[data-action="favorite"]').click();
+        await page.locator('.q-empty').waitFor();
+        await page.locator('.q-header a[href="index.php?view=library"]').click();
+        console.log('PASS browser favorites add/view/remove');
         // FEATURE_BROWSER_TESTS
         await page.locator('.q-header [data-open-upload]').click();
         await page.locator('#fileInput').setInputFiles(process.argv[3]);

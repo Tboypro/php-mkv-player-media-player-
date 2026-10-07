@@ -33,6 +33,9 @@ try:
         for key,value in [('DB_HOST',env['TEST_HOST']),('DB_USER',env['TEST_USER']),('DB_PASS',env['TEST_PASS']),('DB_NAME',name)]:
             encoded=base64.b64encode(value.encode()).decode();config,count=re.subn(r"define\('"+key+r"',.*?\);",f"define('{key}',base64_decode('{encoded}'));",config);assert count==1
         config+="\nini_set('mysqli.default_port', '"+env['TEST_PORT']+"');\n";(app/'config.php').write_text(config)
+        sql(f'USE `{name}`; ALTER TABLE videos DROP COLUMN is_favorite;')
+        for _ in range(2):subprocess.run(php+[str(app/'scripts/migrate_favorites.php')],check=True,env=env)
+        assert rows('SELECT last_position FROM videos WHERE id=27;')[0]['last_position']=='40'
         # FEATURE_MIGRATIONS
         with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
         log=(root/'server.log').open('w+')
@@ -64,6 +67,19 @@ try:
             assert request('/index.php?page='+page)[0]==200
         assert 'assets/css/library.css' not in request('/watch.php?id=27')[1]
         print('PASS layout, pagination, safe titles/errors, conversion messages and unchanged watch page',flush=True)
+        def api(values,expected=200,csrf=True):
+            status,body,_=request('/library_actions.php',values,csrf=csrf);assert status==expected,(status,body);return json.loads(body)
+        api(dict(action='favorite',video_id=27,value=1),403,False)
+        api(dict(action='favorite',video_id=27,value=2),400)
+        api(dict(action='favorite',video_id=-1,value=1),400)
+        api(dict(action='favorite',video_id=99999,value=1),404)
+        for _ in range(2):api(dict(action='favorite',video_id=27,value=1))
+        status,favs,_=request('/index.php?view=favorites');assert status==200 and favs.count('<article class="card media-card"')==1
+        assert 'watch.php?id=27' in favs
+        api(dict(action='favorite',video_id=27,value=0))
+        assert 'No videos here yet' in request('/index.php?view=favorites')[1]
+        assert request('/library_actions.php')[0]==405
+        print('PASS favorites persistence/filtering/idempotence, validation and CSRF',flush=True)
         # FEATURE_TESTS
         if os.getenv('LIBRARY_BROWSER_TEST')=='1':
             clip=root/'test.mp4'
