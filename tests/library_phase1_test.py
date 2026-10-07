@@ -36,6 +36,9 @@ try:
         sql(f'USE `{name}`; ALTER TABLE videos DROP COLUMN is_favorite;')
         for _ in range(2):subprocess.run(php+[str(app/'scripts/migrate_favorites.php')],check=True,env=env)
         assert rows('SELECT last_position FROM videos WHERE id=27;')[0]['last_position']=='40'
+        sql(f'USE `{name}`; DROP TABLE collection_videos; DROP TABLE collections;')
+        for _ in range(2):subprocess.run(php+[str(app/'scripts/migrate_collections.php')],check=True,env=env)
+        assert rows('SELECT last_position FROM videos WHERE id=27;')[0]['last_position']=='40'
         # FEATURE_MIGRATIONS
         with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
         log=(root/'server.log').open('w+')
@@ -80,6 +83,31 @@ try:
         assert 'No videos here yet' in request('/index.php?view=favorites')[1]
         assert request('/library_actions.php')[0]==405
         print('PASS favorites persistence/filtering/idempotence, validation and CSRF',flush=True)
+        api(dict(action='create_collection',name=''),400)
+        api(dict(action='create_collection',name='x'*121),400)
+        api(dict(action='create_collection',name='Private'),403,False)
+        cid=api(dict(action='create_collection',name='Physics <b>notes</b>'))['collection_id']
+        html=request('/index.php?view=collections')[1];assert 'Physics &lt;b&gt;notes&lt;/b&gt;' in html and '<article class="card media-card"' not in html
+        assert request('/index.php?view=collections&collection=99999')[0]==404
+        assert request('/index.php?view=collections&collection[]=1')[0]==400
+        for _ in range(2):api(dict(action='add_to_collection',video_id=27,collection_id=cid))
+        assert len(rows('SELECT * FROM collection_videos;'))==1
+        html=request(f'/index.php?view=collections&collection={cid}')[1];assert html.count('<article class="card media-card"')==1 and 'watch.php?id=27' in html
+        api(dict(action='rename_collection',collection_id=cid,name='Physics'))
+        api(dict(action='add_to_collection',video_id=99999,collection_id=cid),404)
+        api(dict(action='remove_from_collection',video_id=27,collection_id=cid))
+        assert len(rows('SELECT * FROM collection_videos;'))==0 and len(rows('SELECT * FROM videos WHERE id=27;'))==1
+        api(dict(action='add_to_collection',video_id=27,collection_id=cid))
+        media=app/'uploads/videos/test27.mp4';media.parent.mkdir(parents=True,exist_ok=True);media.write_bytes(b'preserve-video')
+        api(dict(action='delete_collection',collection_id=cid))
+        assert len(rows('SELECT * FROM collection_videos;'))==0 and media.read_bytes()==b'preserve-video'
+        assert len(rows('SELECT * FROM videos WHERE id=27;'))==1
+        cid=api(dict(action='create_collection',name='Cascade check'))['collection_id']
+        api(dict(action='add_to_collection',video_id=1,collection_id=cid))
+        assert request('/delete.php',dict(id=1))[0]==200
+        assert len(rows('SELECT * FROM collection_videos;'))==0 and len(rows(f'SELECT * FROM collections WHERE id={cid};'))==1
+        api(dict(action='delete_collection',collection_id=cid))
+        print('PASS collection CRUD, membership, CSRF, validation, cascades and preserved video file',flush=True)
         # FEATURE_TESTS
         if os.getenv('LIBRARY_BROWSER_TEST')=='1':
             clip=root/'test.mp4'

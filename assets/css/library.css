@@ -85,3 +85,14 @@
 @media(prefers-reduced-motion:reduce) { .refresh * { scroll-behavior:auto!important;transition:none!important;animation:none!important; } }
 
 .favorite-mark { color:var(--accent); }
+
+.collection-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-bottom:30px; }
+.collection-card { background:var(--panel);padding:24px;border:1px solid var(--border);border-radius:8px;min-width:0; }
+.collection-card a { display:block; }
+.collection-card a>svg { width:38px;height:38px;color:var(--accent); }
+.collection-card h2 { overflow-wrap:anywhere;font-size:20px;font-weight:550; }
+.collection-card p { color:var(--text-dim);font-size:14px; }
+.collection-actions { display:flex;gap:8px;flex-wrap:wrap; }
+.library-toolbar h1 { white-space:normal;overflow-wrap:anywhere;min-width:0;max-width:100%; }
+@media(max-width:800px) { .collection-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:500px) { .collection-grid { grid-template-columns:1fr; } .q-header nav { gap:20px; } }

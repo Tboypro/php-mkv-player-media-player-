@@ -13,10 +13,10 @@ function library_query(string $sql, string $types = '', array $params = []): mys
     $stmt->execute(); return $stmt;
 }
 function library_ready(): void {
-    try { db()->query('SELECT is_favorite FROM videos LIMIT 0'); }
+    try { db()->query('SELECT is_favorite FROM videos LIMIT 0'); db()->query('SELECT id FROM collections LIMIT 0'); db()->query('SELECT video_id FROM collection_videos LIMIT 0'); }
     catch (mysqli_sql_exception $e) {
         http_response_code(503);
-        exit('Favorites update needed. In your player folder run: php scripts/migrate_favorites.php');
+        exit('Library update needed. In your player folder run php scripts/migrate_favorites.php and php scripts/migrate_collections.php.');
     }
 }
 function progress_percent(array $v): float {
@@ -43,3 +43,14 @@ function ui_icon(string $name): string {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($paths[$name] ?? '') . '</svg>';
 }
 function brand(): string { return '<a class="q-brand" href="index.php"><span class="q-mark">' . ui_icon('play') . '</span>Q Player</a>'; }
+
+function library_dialogs(array $collections, string $token): void { ?>
+<dialog id="actionDialog" class="q-dialog" aria-labelledby="actionTitle"><form id="actionForm">
+<div class="dialog-heading"><h2 id="actionTitle">Edit</h2><button type="button" data-close-dialog aria-label="Close"><?= ui_icon('close') ?></button></div>
+<label id="actionNameLabel" for="actionName">Name</label><input id="actionName" maxlength="255" autocomplete="off">
+<label id="collectionLabel" for="collectionChoice" hidden>Collection</label><select id="collectionChoice" hidden><?php foreach ($collections as $c): ?><option value="<?= (int)$c['id'] ?>"><?= h($c['name']) ?></option><?php endforeach ?></select>
+<p id="actionMessage"></p><p id="actionError" role="alert"></p><div class="dialog-footer"><button type="button" data-close-dialog>Cancel</button><button class="primary" id="actionSubmit" type="submit">Save</button></div>
+</form></dialog>
+<div id="libraryStatus" class="toast" role="status" aria-live="polite"></div>
+<script>window.__libraryToken=<?= json_encode($token) ?>;</script>
+<?php }
