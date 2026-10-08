@@ -28,7 +28,7 @@
         const button = event.target.closest('[data-action="favorite"]');
         if (!button || busy) return;
         busy=true; button.disabled=true;
-        try { await libraryRequest({action:'favorite',video_id:button.dataset.videoId,value:button.dataset.value}); location.reload(); }
+        try { await libraryRequest({action:'favorite',video_id:button.dataset.videoId,value:button.dataset.value}); if (document.body.classList.contains('watch-page')) { const on = button.dataset.value === '1'; button.dataset.value = on ? '0' : '1'; button.setAttribute('aria-pressed', String(on)); button.lastChild.textContent = on ? 'Favorited' : 'Favorite'; busy=false; button.disabled=false; } else location.reload(); }
         catch (error) { document.getElementById('libraryStatus').textContent=error.message; busy=false; button.disabled=false; }
     });
     const dialog=document.getElementById('actionDialog');
@@ -62,7 +62,7 @@
         event.preventDefault();if(busy||!pending)return;
         busy=true;submit.disabled=true;error.textContent='';
         const data={...pending};if(!name.hidden)data.name=name.value.trim();if(!choice.hidden)data.collection_id=choice.value;
-        try {await libraryRequest(data);location.reload();}
+        try {await libraryRequest(data);if(document.body.classList.contains('watch-page')){dialog.close();document.getElementById('libraryStatus').textContent='Added to collection.';busy=false;submit.disabled=false;}else location.reload();}
         catch(err){error.textContent=err.message;busy=false;submit.disabled=false;}
     });
 })();

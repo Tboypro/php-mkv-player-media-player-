@@ -70,8 +70,8 @@ try:
         status,second,_=request('/index.php?page=2');assert status==200 and second.count('<article class="card media-card"')==3
         for page in ['-1','9999999999999999999999999','%5B%5D']:
             assert request('/index.php?page='+page)[0]==200
-        assert 'assets/css/library.css' not in request('/watch.php?id=27')[1]
-        print('PASS layout, pagination, safe titles/errors, conversion messages and unchanged watch page',flush=True)
+        assert 'assets/css/watch.css' in request('/watch.php?id=27')[1]
+        print('PASS layout, pagination, safe titles/errors, conversion messages and watch page',flush=True)
         def api(values,expected=200,csrf=True):
             status,body,_=request('/library_actions.php',values,csrf=csrf);assert status==expected,(status,body);return json.loads(body)
         api(dict(action='favorite',video_id=27,value=1),403,False)
@@ -167,6 +167,11 @@ try:
             for i,color in enumerate(['#192f41','#36352d','#3a2131','#1c3d36'],1):
                 subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i',f'color=c={color}:s=640x360','-frames:v','1',str(thumbs/f'fixture{i}.jpg')],check=True)
             sql(f"USE `{name}`; UPDATE videos SET thumbnail=CONCAT('fixture',MOD(id,4)+1,'.jpg');")
+            playback=root/'playback.webm'
+            subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i','testsrc2=size=320x180:rate=5','-t','120','-c:v','libvpx','-b:v','150k',str(playback)],check=True)
+            shutil.copyfile(playback,app/'uploads/videos/test27.webm')
+            sql(f"USE `{name}`; UPDATE videos SET stored_filename='test27.webm' WHERE id=27;")
+            subprocess.run(['node',str(app/'tests/library_phase2_browser_test.js'),f'http://127.0.0.1:{port}'],check=True,env=env)
             subprocess.run(['node',str(app/'tests/library_phase1_browser_test.js'),f'http://127.0.0.1:{port}',str(clip)],check=True,env=env)
         log.seek(0);logs=log.read();assert 'Fatal error' not in logs and 'Warning:' not in logs,logs
         print('Library phase tests passed.',flush=True)

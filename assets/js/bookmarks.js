@@ -52,6 +52,8 @@
     }
     function render(rows) {
         list.replaceChildren();
+        const count = document.getElementById('bookmarkCount');
+        if (count) count.textContent = `(${rows.length})`;
         for (const row of rows) {
             const item = document.createElement('li');
             item.className = 'bookmark-item';
@@ -67,7 +69,11 @@
             });
             jump.className = 'bookmark-jump';
             jump.setAttribute('aria-label', `Jump to ${label} at ${time(row.position_seconds)}`);
-            const actions = document.createElement('div');
+            const actions = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.textContent = '⋮';
+            summary.setAttribute('aria-label', `Actions for ${label}`);
+            actions.append(summary);
             actions.className = 'bookmark-actions';
             const rename = button('Rename', () => {
                 if (item.querySelector('form')) return;

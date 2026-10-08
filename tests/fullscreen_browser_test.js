@@ -21,13 +21,14 @@ const root = path.resolve(__dirname, '..');
             .replace(/<\?(?:php|=)[\s\S]*?\?>/g, '')
             .replace(/<script>[\s\S]*?<\/script>/g, '<script>window.__videoId=1;window.__lastPosition=0;</script>')
             .replace(/src="stream.php[^"]*"/, 'src="small.webm" muted loop')
-            .replace('<script src="assets/js/bookmarks.js"></script>', '');
+            .replace('<script src="assets/js/bookmarks.js"></script>', '')
+            .replace('<script src="assets/js/library.js"></script>', '');
         await page.route('**/*', route => {
             const name = new URL(route.request().url()).pathname.slice(1);
             if (name === 'watch.php') return route.fulfill({ contentType: 'text/html', body: html });
             if (name === 'save_progress.php') return route.fulfill({ contentType: 'application/json', body: '{"success":true}' });
             if (['small.webm', 'portrait.webm'].includes(name)) return route.fulfill({ contentType: 'video/webm', body: fs.readFileSync(path.join(temp, name)) });
-            if (['assets/css/style.css', 'assets/js/player.js', 'assets/js/fullscreen.js'].includes(name)) return route.fulfill({ contentType: name.endsWith('.css') ? 'text/css' : 'application/javascript', body: fs.readFileSync(path.join(root, name)) });
+            if (['assets/css/style.css', 'assets/css/library.css', 'assets/css/watch.css', 'assets/js/watch-layout.js', 'assets/js/player.js', 'assets/js/fullscreen.js'].includes(name)) return route.fulfill({ contentType: name.endsWith('.css') ? 'text/css' : 'application/javascript', body: fs.readFileSync(path.join(root, name)) });
             return route.fulfill({ status: 404, body: '' });
         });
         await page.goto('http://player.test/watch.php');

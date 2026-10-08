@@ -247,6 +247,7 @@
 
     // --- Keyboard shortcuts ---
     document.addEventListener('keydown', e => {
+        if (e.defaultPrevented || document.activeElement?.isContentEditable || document.activeElement?.closest?.('dialog[open]')) return;
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
 
         if (e.key === 'Escape' && isShortcutsOpen()) {
@@ -256,7 +257,7 @@
         }
 
         // Allow Space to activate focused buttons (e.g. shortcuts toggle or close button)
-        if (e.key === ' ' && document.activeElement?.tagName === 'BUTTON') {
+        if (e.key === ' ' && ['BUTTON', 'SUMMARY'].includes(document.activeElement?.tagName)) {
             return;
         }
 
