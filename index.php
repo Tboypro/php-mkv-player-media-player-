@@ -13,26 +13,42 @@ if (isset($_GET['collection'])) {
     $view = 'collections';
 }
 $isCollectionOverview = $view === 'collections' && !$collectionId;
+$q = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
+if (strlen($q) > 500 || !preg_match('//u', $q)) { http_response_code(400); exit('Search must be valid text of at most 500 bytes.'); }
+$sort = is_string($_GET['sort'] ?? null) && in_array($_GET['sort'], ['added','title','watched'], true) ? $_GET['sort'] : 'added';
+$order = ['added'=>'created_at DESC, id DESC','title'=>'title ASC, id ASC','watched'=>'last_watched_at DESC, id DESC'][$sort];
 $condition = $view === 'favorites' ? ' WHERE is_favorite = 1' : '';
 $params = []; $types = '';
 if ($collectionId) { $condition = ' WHERE EXISTS (SELECT 1 FROM collection_videos cv WHERE cv.video_id=videos.id AND cv.collection_id=?)'; $params = [$collectionId]; $types = 'i'; }
+if ($q !== '') { $condition .= ($condition ? ' AND ' : ' WHERE ') . 'LOCATE(?, title) > 0'; $params[] = $q; $types .= 's'; }
 $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
 $total = (int)library_query('SELECT COUNT(*) AS n FROM videos' . $condition, $types, $params)->get_result()->fetch_assoc()['n'];
 $page = min($page, max(1, (int)ceil($total / 24)));
 $offset = ($page - 1) * 24;
-$videos = library_query('SELECT * FROM videos' . $condition . ' ORDER BY created_at DESC, id DESC LIMIT 24 OFFSET ' . $offset, $types, $params)->get_result()->fetch_all(MYSQLI_ASSOC);
+$videos = library_query('SELECT * FROM videos' . $condition . ' ORDER BY ' . $order . ' LIMIT 24 OFFSET ' . $offset, $types, $params)->get_result()->fetch_all(MYSQLI_ASSOC);
 if ($isCollectionOverview) $videos = [];
+// Legacy positions have unknown viewing times and sort after timestamped activity.
+$continue = db()->query("SELECT * FROM videos WHERE status='ready' AND is_completed=0 AND last_position>0 AND (duration_seconds=0 OR duration_seconds>last_position) ORDER BY last_watched_at DESC, id DESC LIMIT 4")->fetch_all(MYSQLI_ASSOC);
+$hero = array_shift($continue);
+$showHero = $view === 'library' && $page === 1 && $q === '';
 $processingIds = array_column(array_filter($videos, fn($v) => $v['status'] === 'processing'), 'id');
 $conversionMode = get_setting('conversion_mode', 'local');
 $title = $currentCollection ? $currentCollection['name'] : ($view === 'favorites' ? 'Favorites' : ($isCollectionOverview ? 'Collections' : 'Your library'));
-function library_url(array $changes): string { return 'index.php?' . http_build_query(array_merge(array_filter(['view' => $GLOBALS['view'], 'collection' => $GLOBALS['collectionId'], 'page' => 1]), $changes)); }
+function library_url(array $changes): string { return 'index.php?' . http_build_query(array_merge(array_filter(['view' => $GLOBALS['view'], 'collection' => $GLOBALS['collectionId'], 'page' => 1, 'q' => $GLOBALS['q'], 'sort' => $GLOBALS['sort']], fn($value) => $value !== null && $value !== '' && $value !== 0), $changes)); }
 ?>
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= h($title) ?> · Q Player</title><link rel="stylesheet" href="assets/css/style.css"><link rel="stylesheet" href="assets/css/library.css"></head>
 <body class="refresh library-page">
-<header class="q-header"><?= brand() ?><nav aria-label="Library navigation"><?php foreach (['library'=>'Library','collections'=>'Collections','favorites'=>'Favorites'] as $key=>$label): ?><a <?= $view === $key ? 'aria-current="page"' : '' ?> href="index.php?view=<?= $key ?>"><?= $label ?></a><?php endforeach ?></nav><button data-open-upload><?= ui_icon('plus') ?><span>Add video</span></button></header>
+<header class="q-header"><?= brand() ?><nav aria-label="Library navigation"><?php foreach (['library'=>'Library','collections'=>'Collections','favorites'=>'Favorites'] as $key=>$label): ?><a <?= $view === $key ? 'aria-current="page"' : '' ?> href="index.php?view=<?= $key ?>"><?= $label ?></a><?php endforeach ?></nav><?php if (!$isCollectionOverview): ?><form class="q-search" action="index.php" role="search"><?= ui_icon('search') ?><input type="hidden" name="view" value="<?= h($view) ?>"><input type="hidden" name="sort" value="<?= h($sort) ?>"><?php if ($collectionId): ?><input type="hidden" name="collection" value="<?= $collectionId ?>"><?php endif ?><input name="q" value="<?= h($q) ?>" placeholder="Search videos…" aria-label="Search video titles"><button type="submit" class="sr-only">Search</button></form><?php endif ?><button data-open-upload><?= ui_icon('plus') ?><span>Add video</span></button></header>
 <main class="library-main">
+<?php if ($showHero && $hero): ?>
+<section class="continue-section" aria-label="Continue watching">
+<a class="hero-video" href="watch.php?id=<?= (int)$hero['id'] ?>"><?php thumb($hero) ?><span class="hero-play"><?= ui_icon('play') ?></span><div class="hero-copy"><h2><?= h($hero['title']) ?></h2><p>Resume from <?= format_duration((int)$hero['last_position']) ?><?php if ((int)$hero['duration_seconds'] > 0): ?> · <?= (int)ceil(((int)$hero['duration_seconds']-(int)$hero['last_position'])/60) ?> min remaining<?php endif ?></p></div><div class="hero-progress"><i style="width:<?= progress_percent($hero) ?>%"></i></div></a>
+<aside class="continue-list"><h2>Continue watching</h2><?php if (!$continue): ?><p class="muted">Your other unfinished videos will appear here.</p><?php endif ?><?php foreach ($continue as $v): ?><a class="continue-item" href="watch.php?id=<?= (int)$v['id'] ?>"><div class="mini-thumb"><?php thumb($v) ?><i style="width:<?= progress_percent($v) ?>%"></i></div><div><h3><?= h($v['title']) ?></h3><p><?= format_duration((int)$v['last_position']) ?><?php if ((int)$v['duration_seconds'] > 0): ?> · <?= (int)ceil(((int)$v['duration_seconds']-(int)$v['last_position'])/60) ?> min left<?php endif ?></p></div></a><?php endforeach ?></aside>
+</section>
+<?php endif ?>
+
 <?php if ($view === 'collections' && !$collectionId): ?>
 <div class="library-toolbar"><h1>Collections</h1><button class="primary" data-action="create_collection"><?= ui_icon('plus') ?>New collection</button></div>
 <?php if (!$collections): ?><div class="q-empty"><?= ui_icon('folder') ?><h2>A place for everything</h2><p>Group your videos into collections, such as Films or Physics.</p><button data-action="create_collection">Create your first collection</button></div><?php endif ?>
@@ -41,8 +57,10 @@ function library_url(array $changes): string { return 'index.php?' . http_build_
 <?php if (!$isCollectionOverview): ?>
 
 <div class="library-toolbar"><h1><?= h($title) ?></h1><span class="muted"><?= $total ?> <?= $total === 1 ? 'video' : 'videos' ?></span>
+<form class="sort-form" action="index.php"><input type="hidden" name="view" value="<?= h($view) ?>"><input type="hidden" name="q" value="<?= h($q) ?>"><?php if ($collectionId): ?><input type="hidden" name="collection" value="<?= $collectionId ?>"><?php endif ?><label class="sr-only" for="sortVideos">Sort videos</label><select name="sort" id="sortVideos"><?php foreach (['added'=>'Recently added','title'=>'Title A–Z','watched'=>'Last watched'] as $key=>$label): ?><option value="<?= $key ?>" <?= $sort===$key?'selected':'' ?>><?= $label ?></option><?php endforeach ?></select><button type="submit">Sort</button></form>
 <div class="view-switch"><button id="gridView" aria-label="Grid view" aria-pressed="true"><?= ui_icon('grid') ?></button><button id="listView" aria-label="List view" aria-pressed="false"><?= ui_icon('list') ?></button></div></div>
-<?php if (!$videos): ?><div class="q-empty"><?= ui_icon('play') ?><h2>No videos here yet</h2><p><?= $view === 'favorites' ? 'Favorite a video from its menu to find it here.' : ($currentCollection ? 'Add videos to this collection using their menu in the Library tab.' : 'Add a video to start your library.') ?></p><button data-open-upload>Add video</button></div><?php endif ?>
+<?php if ($q !== ''): ?><p class="search-summary"><?= $total ?> results for “<?= h($q) ?>” · <a href="<?= h(library_url(['q'=>'','page'=>1])) ?>">Clear search</a></p><?php endif ?>
+<?php if (!$videos): ?><div class="q-empty"><?= ui_icon('play') ?><h2><?= $q !== '' ? 'No matching videos' : 'No videos here yet' ?></h2><p><?= $view === 'favorites' ? 'Favorite a video from its menu to find it here.' : ($currentCollection ? 'Add videos to this collection using their menu in the Library tab.' : 'Add a video to start your library.') ?></p><button data-open-upload>Add video</button></div><?php endif ?>
 <div class="video-grid" id="videoGrid">
 <?php foreach ($videos as $v): ?>
 <article class="card media-card" data-id="<?= (int)$v['id'] ?>" data-status="<?= h($v['status']) ?>">

@@ -29,6 +29,7 @@ jobs:
         run: |
           node --check assets/js/app.js
           node --check assets/js/library.js
+          node --check assets/js/watch-layout.js
           node --check assets/js/player.js
           node --check assets/js/bookmarks.js
 
@@ -72,7 +73,14 @@ jobs:
           BOOKMARK_DB_PASS: test-only-password
         run: python3 tests/conversion_test.py
 
-      - name: Test library layout with MariaDB
+      - name: Install browser test dependencies
+        run: |
+          npm install --prefix /tmp/qplayer-browser playwright@1.51.1 --no-audit --no-fund
+          /tmp/qplayer-browser/node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Test library and player with MariaDB and Chromium
         env:
           BOOKMARK_DB_PASS: test-only-password
+          LIBRARY_BROWSER_TEST: '1'
+          PLAYWRIGHT_MODULE: /tmp/qplayer-browser/node_modules/playwright
         run: python3 tests/library_phase1_test.py

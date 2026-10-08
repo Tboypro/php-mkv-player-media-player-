@@ -64,11 +64,12 @@
 
     // --- Resume prompt ---
     let resumeHandled = false;
+    let playbackStarted = false;
     video.addEventListener('loadedmetadata', () => {
         durationTimeLabel.textContent = formatTime(video.duration);
         durTimeSmall.textContent = formatTime(video.duration);
 
-        if (lastPosition > 5 && lastPosition < video.duration - 5) {
+        if (lastPosition > 0 && lastPosition < video.duration) {
             resumeTimeSpan.textContent = formatTime(lastPosition);
             resumeToast.classList.add('show');
         } else {
@@ -80,6 +81,7 @@
         video.currentTime = lastPosition;
         resumeToast.classList.remove('show');
         resumeHandled = true;
+        playbackStarted = true;
         saveProgress();
         video.play();
     });
@@ -87,6 +89,7 @@
         video.currentTime = 0;
         resumeToast.classList.remove('show');
         resumeHandled = true;
+        playbackStarted = true;
         saveProgress();
         video.play();
     });
@@ -99,6 +102,7 @@
         video.currentTime = position;
         resumeToast.classList.remove('show');
         resumeHandled = true;
+        playbackStarted = true;
         saveProgress();
         updateProgressUI();
     });
@@ -112,6 +116,7 @@
     video.addEventListener('click', togglePlay);
 
     video.addEventListener('play', () => {
+        playbackStarted = true;
         playIcon.style.display = 'none';
         pauseIcon.style.display = '';
     });
@@ -242,6 +247,7 @@
 
     // --- Keyboard shortcuts ---
     document.addEventListener('keydown', e => {
+        if (e.defaultPrevented || document.activeElement?.isContentEditable || document.activeElement?.closest?.('dialog[open]')) return;
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
 
         if (e.key === 'Escape' && isShortcutsOpen()) {
@@ -251,7 +257,7 @@
         }
 
         // Allow Space to activate focused buttons (e.g. shortcuts toggle or close button)
-        if (e.key === ' ' && document.activeElement?.tagName === 'BUTTON') {
+        if (e.key === ' ' && ['BUTTON', 'SUMMARY'].includes(document.activeElement?.tagName)) {
             return;
         }
 
@@ -285,6 +291,8 @@
         const data = new FormData();
         data.append('id', videoId);
         data.append('position', position);
+        data.append('started', playbackStarted ? '1' : '0');
+        data.append('completed', video.ended || video.currentTime >= video.duration ? '1' : '0');
         // sendBeacon works reliably during unload; fall back to fetch otherwise
         if (navigator.sendBeacon) {
             navigator.sendBeacon('save_progress.php', data);
