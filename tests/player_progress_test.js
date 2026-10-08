@@ -93,7 +93,7 @@ function player(lastPosition = 40, useBeacon = true) {
     assert.equal(app.requests.at(-1).position, 0);
 }
 // Videos without a resume prompt still save progress normally.
-for (const savedPosition of [0, 3, 118]) {
+for (const savedPosition of [0, 120]) {
     const app = player(savedPosition);
     app.load();
     app.video.currentTime = 15;
@@ -167,3 +167,15 @@ console.log('PASS: completion, pause/unload, fetch fallback, replay, near-end pa
     }
 }
 console.log('PASS: bookmark seeking, resume choice, invalid bookmark positions.');
+
+// Short and nearly finished videos keep their saved position until a choice is made.
+for (const savedPosition of [3,118]) {
+ const app=player(savedPosition);app.load();app.leave();assert.equal(app.requests.length,0);
+ app.click('resumeYes');assert.equal(app.requests.at(-1).position,savedPosition);assert.equal(app.requests.at(-1).started,'1');
+}
+{
+ const app=player(0);app.load();app.leave();assert.equal(app.requests.at(-1).started,'0');
+ app.video.currentTime=120;app.video.emit('ended');assert.equal(app.requests.at(-1).completed,'1');
+ app.video.currentTime=12;app.video.play();app.tick();assert.equal(app.requests.at(-1).completed,'0');
+}
+console.log('PASS: short-video resume and explicit history/completion fields');

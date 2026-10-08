@@ -39,7 +39,9 @@ try:
         sql(f'USE `{name}`; DROP TABLE collection_videos; DROP TABLE collections;')
         for _ in range(2):subprocess.run(php+[str(app/'scripts/migrate_collections.php')],check=True,env=env)
         assert rows('SELECT last_position FROM videos WHERE id=27;')[0]['last_position']=='40'
-        # FEATURE_MIGRATIONS
+        sql(f'USE `{name}`; ALTER TABLE videos DROP COLUMN is_completed, DROP COLUMN last_watched_at;')
+        for _ in range(2):subprocess.run(php+[str(app/'scripts/migrate_watch_history.php')],check=True,env=env)
+        assert rows('SELECT last_position,last_watched_at FROM videos WHERE id=27;')[0]=={'last_position':'40','last_watched_at':None}
         with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
         log=(root/'server.log').open('w+')
         server=subprocess.Popen(php+['-S',f'127.0.0.1:{port}','-t',str(app)],stdout=log,stderr=log,env=env)
@@ -64,7 +66,7 @@ try:
         assert '&lt;b&gt;Failed input&lt;/b&gt;' in html
         assert 'Converted locally after online failed: test failure' in html
         assert 'uploadDialog' in html and 'convertModeSwitch' in html
-        assert 'Continue watching' not in html and 'sortVideos' not in html
+        assert 'Continue watching' in html
         status,second,_=request('/index.php?page=2');assert status==200 and second.count('<article class="card media-card"')==3
         for page in ['-1','9999999999999999999999999','%5B%5D']:
             assert request('/index.php?page='+page)[0]==200
@@ -108,7 +110,31 @@ try:
         assert len(rows('SELECT * FROM collection_videos;'))==0 and len(rows(f'SELECT * FROM collections WHERE id={cid};'))==1
         api(dict(action='delete_collection',collection_id=cid))
         print('PASS collection CRUD, membership, CSRF, validation, cascades and preserved video file',flush=True)
-        # FEATURE_TESTS
+
+        sql(f'USE `{name}`; UPDATE videos SET last_position=0, is_completed=0, last_watched_at=NULL;')
+        assert 'continue-section' not in request('/index.php')[1]
+        assert request('/save_progress.php')[0]==405
+        assert request('/save_progress.php',dict(id=27,position=-1))[0]==400
+        assert request('/save_progress.php',dict(id=27,position=0,started=0))[0]==200
+        assert rows('SELECT last_watched_at FROM videos WHERE id=27;')[0]['last_watched_at'] is None
+        request('/save_progress.php',dict(id=27,position=35,started=1))
+        assert rows('SELECT last_watched_at FROM videos WHERE id=27;')[0]['last_watched_at'] is not None
+        html=request('/index.php')[1];assert 'class="hero-video" href="watch.php?id=27"' in html
+        request('/save_progress.php',dict(id=27,position=0,started=1,completed=1))
+        request('/save_progress.php',dict(id=27,position=0,started=0,completed=0))
+        assert rows('SELECT is_completed FROM videos WHERE id=27;')[0]['is_completed']=='1'
+        assert 'continue-section' not in request('/index.php')[1]
+        request('/save_progress.php',dict(id=27,position=20,started=1,completed=0))
+        sql(f"USE `{name}`; UPDATE videos SET last_position=40,last_watched_at='2026-01-01 00:00:00' WHERE id=23;")
+        assert 'class="hero-video" href="watch.php?id=27"' in request('/index.php')[1]
+        assert 'continue-section' not in request('/index.php?view=favorites')[1]
+        request('/save_progress.php',dict(id=25,position=30,started=1))
+        assert rows('SELECT last_position FROM videos WHERE id=25;')[0]['last_position']=='0'
+        request('/save_progress.php',dict(id=27,position=999,started=1))
+        assert rows('SELECT last_position FROM videos WHERE id=27;')[0]['last_position']=='120'
+        request('/save_progress.php',dict(id=27,position=40,started=1))
+        print('PASS history migration, recent ordering, completion/replay, idle opening and ready-only progress',flush=True)
+
         if os.getenv('LIBRARY_BROWSER_TEST')=='1':
             clip=root/'test.mp4'
             subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i','testsrc2=size=320x180:rate=5','-t','2','-c:v','libx264','-pix_fmt','yuv420p',str(clip)],check=True)

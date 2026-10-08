@@ -13,10 +13,10 @@ function library_query(string $sql, string $types = '', array $params = []): mys
     $stmt->execute(); return $stmt;
 }
 function library_ready(): void {
-    try { db()->query('SELECT is_favorite FROM videos LIMIT 0'); db()->query('SELECT id FROM collections LIMIT 0'); db()->query('SELECT video_id FROM collection_videos LIMIT 0'); }
+    try { db()->query('SELECT is_favorite, is_completed, last_watched_at FROM videos LIMIT 0'); db()->query('SELECT id FROM collections LIMIT 0'); db()->query('SELECT video_id FROM collection_videos LIMIT 0'); }
     catch (mysqli_sql_exception $e) {
         http_response_code(503);
-        exit('Library update needed. In your player folder run php scripts/migrate_favorites.php and php scripts/migrate_collections.php.');
+        exit('Library update needed. In your player folder run php scripts/migrate_favorites.php, php scripts/migrate_collections.php and php scripts/migrate_watch_history.php.');
     }
 }
 function progress_percent(array $v): float {

@@ -37,6 +37,8 @@ CREATE TABLE IF NOT EXISTS videos (
     last_position INT UNSIGNED DEFAULT 0,
 
     is_favorite TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    is_completed TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    last_watched_at DATETIME NULL,
 
     -- Conversion status
     status ENUM('processing','ready','failed')

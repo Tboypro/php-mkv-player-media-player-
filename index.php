@@ -22,6 +22,10 @@ $page = min($page, max(1, (int)ceil($total / 24)));
 $offset = ($page - 1) * 24;
 $videos = library_query('SELECT * FROM videos' . $condition . ' ORDER BY created_at DESC, id DESC LIMIT 24 OFFSET ' . $offset, $types, $params)->get_result()->fetch_all(MYSQLI_ASSOC);
 if ($isCollectionOverview) $videos = [];
+// Legacy positions have unknown viewing times and sort after timestamped activity.
+$continue = db()->query("SELECT * FROM videos WHERE status='ready' AND is_completed=0 AND last_position>0 AND (duration_seconds=0 OR duration_seconds>last_position) ORDER BY last_watched_at DESC, id DESC LIMIT 4")->fetch_all(MYSQLI_ASSOC);
+$hero = array_shift($continue);
+$showHero = $view === 'library' && $page === 1;
 $processingIds = array_column(array_filter($videos, fn($v) => $v['status'] === 'processing'), 'id');
 $conversionMode = get_setting('conversion_mode', 'local');
 $title = $currentCollection ? $currentCollection['name'] : ($view === 'favorites' ? 'Favorites' : ($isCollectionOverview ? 'Collections' : 'Your library'));
@@ -33,6 +37,13 @@ function library_url(array $changes): string { return 'index.php?' . http_build_
 <body class="refresh library-page">
 <header class="q-header"><?= brand() ?><nav aria-label="Library navigation"><?php foreach (['library'=>'Library','collections'=>'Collections','favorites'=>'Favorites'] as $key=>$label): ?><a <?= $view === $key ? 'aria-current="page"' : '' ?> href="index.php?view=<?= $key ?>"><?= $label ?></a><?php endforeach ?></nav><button data-open-upload><?= ui_icon('plus') ?><span>Add video</span></button></header>
 <main class="library-main">
+<?php if ($showHero && $hero): ?>
+<section class="continue-section" aria-label="Continue watching">
+<a class="hero-video" href="watch.php?id=<?= (int)$hero['id'] ?>"><?php thumb($hero) ?><span class="hero-play"><?= ui_icon('play') ?></span><div class="hero-copy"><h2><?= h($hero['title']) ?></h2><p>Resume from <?= format_duration((int)$hero['last_position']) ?><?php if ((int)$hero['duration_seconds'] > 0): ?> · <?= (int)ceil(((int)$hero['duration_seconds']-(int)$hero['last_position'])/60) ?> min remaining<?php endif ?></p></div><div class="hero-progress"><i style="width:<?= progress_percent($hero) ?>%"></i></div></a>
+<aside class="continue-list"><h2>Continue watching</h2><?php if (!$continue): ?><p class="muted">Your other unfinished videos will appear here.</p><?php endif ?><?php foreach ($continue as $v): ?><a class="continue-item" href="watch.php?id=<?= (int)$v['id'] ?>"><div class="mini-thumb"><?php thumb($v) ?><i style="width:<?= progress_percent($v) ?>%"></i></div><div><h3><?= h($v['title']) ?></h3><p><?= format_duration((int)$v['last_position']) ?><?php if ((int)$v['duration_seconds'] > 0): ?> · <?= (int)ceil(((int)$v['duration_seconds']-(int)$v['last_position'])/60) ?> min left<?php endif ?></p></div></a><?php endforeach ?></aside>
+</section>
+<?php endif ?>
+
 <?php if ($view === 'collections' && !$collectionId): ?>
 <div class="library-toolbar"><h1>Collections</h1><button class="primary" data-action="create_collection"><?= ui_icon('plus') ?>New collection</button></div>
 <?php if (!$collections): ?><div class="q-empty"><?= ui_icon('folder') ?><h2>A place for everything</h2><p>Group your videos into collections, such as Films or Physics.</p><button data-action="create_collection">Create your first collection</button></div><?php endif ?>
