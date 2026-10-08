@@ -122,3 +122,8 @@
 @media(max-width:1000px){.continue-section{grid-template-columns:minmax(0,1.6fr) minmax(230px,1fr);gap:20px}.mini-thumb{width:100px;flex-basis:100px}}
 @media(max-width:800px){.continue-section{grid-template-columns:1fr;gap:20px;margin-bottom:30px}.continue-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.continue-list h2,.continue-list>.muted{grid-column:1/-1;margin:0}.continue-item{display:block;margin:0}.mini-thumb{width:100%;margin-bottom:8px}.continue-item h3{font-size:13px}.continue-item p{font-size:12px}.hero-copy h2{font-size:21px}}
 @media(max-width:500px){.hero-copy{left:14px;bottom:12px;right:14px}.hero-copy h2{font-size:17px}.hero-copy p{font-size:12px}.hero-play{width:42px;height:42px;top:38%}.hero-play svg{width:22px}.continue-item p{font-size:11px}}
+
+/* Scoped search and sorting */
+.q-search{margin-left:auto;position:relative;flex:0 1 280px}.q-search svg{position:absolute;left:12px;top:10px;color:var(--text-dim);width:18px}.refresh .q-search input[name=q]{width:100%;padding-left:38px;font-size:14px}.sort-form{margin-left:auto;display:flex;gap:8px;align-items:center}.refresh .sort-form select{font-size:14px}.search-summary{color:var(--text-dim);font-size:14px}.search-summary a{color:var(--accent)}
+@media(max-width:1100px){.q-header{flex-wrap:wrap;padding-top:12px;padding-bottom:12px;gap:12px}.q-search{flex-basis:200px}.sort-form{margin-left:0}}
+@media(max-width:600px){.q-header .q-search{order:4;flex-basis:100%}.sort-form{flex-wrap:wrap}.refresh .sort-form select{max-width:180px}}

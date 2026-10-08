@@ -14,6 +14,8 @@
     document.addEventListener('click', event => {
         document.querySelectorAll('.card-menu[open]').forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
     });
+    const sort = document.getElementById('sortVideos');
+    sort?.addEventListener('change', () => sort.form.requestSubmit());
     let busy = false;
     async function libraryRequest(data) {
         const response = await fetch('library_actions.php', {method:'POST', headers:{'X-CSRF-Token':window.__libraryToken}, body:new URLSearchParams(data)});

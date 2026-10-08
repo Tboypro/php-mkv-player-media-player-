@@ -135,6 +135,31 @@ try:
         request('/save_progress.php',dict(id=27,position=40,started=1))
         print('PASS history migration, recent ordering, completion/replay, idle opening and ready-only progress',flush=True)
 
+        def ids(html):return [int(v) for v in re.findall(r'<article class="card media-card" data-id="(\d+)"',html)]
+        assert ids(request('/index.php?q=Video%2002')[1])==[2]
+        assert ids(request('/index.php?q=%25')[1])==[]
+        assert ids(request('/index.php?q=%27%20OR%201%3D1--')[1])==[]
+        assert '&lt;script&gt;' in request('/index.php?q=%3Cscript%3E')[1]
+        assert request('/index.php?q='+'x'*501)[0]==400
+        assert request('/index.php?q[]=x&sort[]=x')[0]==200
+        assert ids(request('/index.php?q=Video&sort=title')[1])==list(range(2,26))
+        assert ids(request('/index.php?sort=watched')[1])[0]==27
+        api(dict(action='favorite',video_id=2,value=1))
+        assert ids(request('/index.php?view=favorites&q=Video&sort=title')[1])==[2]
+        api(dict(action='favorite',video_id=2,value=0))
+        cid=api(dict(action='create_collection',name='Search scope'))['collection_id']
+        api(dict(action='add_to_collection',video_id=3,collection_id=cid))
+        assert ids(request(f'/index.php?collection={cid}&q=Video&sort=title')[1])==[3]
+        api(dict(action='delete_collection',collection_id=cid))
+        html=request('/index.php?q=Video&sort=title')[1]
+        # 24 matching titles after the deletion fixture: add one to exercise filtered pagination.
+        sql(f"USE `{name}`; INSERT INTO videos(title,original_filename,stored_filename,status) VALUES ('Video z','z.mp4','z.mp4','failed');")
+        html=request('/index.php?q=Video&sort=title')[1];assert 'q=Video' in html and 'sort=title' in html and 'page=2' in html
+        assert len(ids(request('/index.php?q=Video&sort=title&page=2')[1]))==1
+        sql(f"USE `{name}`; DELETE FROM videos WHERE title='Video z';")
+        assert 'continue-section' not in request('/index.php?q=Video')[1]
+        print('PASS scoped search, literal metacharacters, allowlisted sorting and filtered pagination',flush=True)
+
         if os.getenv('LIBRARY_BROWSER_TEST')=='1':
             clip=root/'test.mp4'
             subprocess.run(['ffmpeg','-v','error','-y','-f','lavfi','-i','testsrc2=size=320x180:rate=5','-t','2','-c:v','libx264','-pix_fmt','yuv420p',str(clip)],check=True)
